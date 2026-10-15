@@ -3,108 +3,124 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Update Customer - Pancake</title>
+  <title>Cập nhật SĐT khách hàng</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; }
-    label { display: block; margin-top: 14px; font-weight: 500; }
-    input, select { width: 100%; padding: 9px 12px; margin-top: 5px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; }
-    button { margin-top: 22px; width: 100%; padding: 11px; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 500; }
-    button:disabled { background: #93c5fd; cursor: not-allowed; }
-    #result { margin-top: 18px; padding: 12px 14px; border-radius: 8px; display: none; font-size: 14px; }
-    .success { background: #dcfce7; color: #166534; }
-    .error { background: #fee2e2; color: #991b1b; }
-    .loading { color: #6b7280; font-size: 14px; margin-top: 8px; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 420px;
+      margin: 40px auto;
+      padding: 0 16px;
+      background: #f8fafc;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin: 0 0 20px;
+      font-size: 20px;
+    }
+    label {
+      display: block;
+      margin-top: 16px;
+      font-weight: 500;
+      font-size: 14px;
+      color: #374151;
+    }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      margin-top: 6px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+    input:disabled {
+      background: #f3f4f6;
+      color: #6b7280;
+      cursor: not-allowed;
+    }
+    button {
+      margin-top: 24px;
+      width: 100%;
+      padding: 12px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #93c5fd;
+      cursor: not-allowed;
+    }
+    #result {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      display: none;
+      font-size: 14px;
+    }
+    .success {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
   </style>
 </head>
 <body>
-  <h2>Cập nhật thông tin khách hàng</h2>
+  <div class="card">
+    <h2>Cập nhật số điện thoại</h2>
 
-  <form id="customerForm">
-    <!-- Dropdown chọn Page -->
-    <label>Chọn Page</label>
-    <select id="pageSelect" required>
-      <option value="">-- Đang tải danh sách page... --</option>
-    </select>
-    <div id="pageLoading" class="loading">Đang tải danh sách page...</div>
+    <form id="form">
+      <label>Page</label>
+      <input type="text" value="Thời Trang Nữ 2 - 106926415478660" disabled>
 
-    <label>Page Customer ID (UUID)</label>
-    <input type="text" id="pageCustomerId" required placeholder="Nhập UUID của khách hàng">
+      <label>Page Customer ID (UUID)</label>
+      <input type="text" id="pageCustomerId" required placeholder="Nhập UUID của khách hàng">
 
-    <label>Họ tên</label>
-    <input type="text" id="name" placeholder="Nguyễn Văn A">
+      <label>Số điện thoại</label>
+      <input type="text" id="phone" required placeholder="0901234567">
 
-    <label>Số điện thoại</label>
-    <input type="text" id="phone" placeholder="0901234567">
+      <button type="submit" id="submitBtn">Cập nhật số điện thoại</button>
+    </form>
 
-    <label>Giới tính</label>
-    <select id="gender">
-      <option value="">-- Không thay đổi --</option>
-      <option value="male">Nam</option>
-      <option value="female">Nữ</option>
-      <option value="unknown">Không xác định</option>
-    </select>
-
-    <label>Ngày sinh</label>
-    <input type="date" id="birthday">
-
-    <button type="submit" id="submitBtn">Cập nhật</button>
-  </form>
-
-  <div id="result"></div>
+    <div id="result"></div>
+  </div>
 
   <script>
-    const pageSelect = document.getElementById('pageSelect');
-    const pageLoading = document.getElementById('pageLoading');
-    const form = document.getElementById('customerForm');
+    const form = document.getElementById('form');
     const resultEl = document.getElementById('result');
     const submitBtn = document.getElementById('submitBtn');
 
-    // ===== 1. Load danh sách Page khi mở trang =====
-    async function loadPages() {
-      try {
-        const res = await fetch('/api/list-pages');
-        const data = await res.json();
+    // Page ID cố định
+    const PAGE_ID = "106926415478660";
 
-        if (!res.ok) throw new Error(data.message || 'Không lấy được danh sách page');
-
-        pageSelect.innerHTML = '<option value="">-- Chọn Page --</option>';
-
-        data.pages.forEach(page => {
-          const option = document.createElement('option');
-          option.value = page.id;
-          option.textContent = `${page.name} (${page.platform || 'N/A'})`;
-          pageSelect.appendChild(option);
-        });
-
-        pageLoading.style.display = 'none';
-      } catch (err) {
-        pageLoading.textContent = 'Lỗi tải danh sách page: ' + err.message;
-        pageLoading.style.color = '#991b1b';
-      }
-    }
-
-    loadPages();
-
-    // ===== 2. Submit form =====
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       submitBtn.disabled = true;
       resultEl.style.display = 'none';
 
-      const payload = {
-        page_id: pageSelect.value,
-        page_customer_id: document.getElementById('pageCustomerId').value.trim(),
-        name: document.getElementById('name').value.trim() || null,
-        phone: document.getElementById('phone').value.trim() || null,
-        gender: document.getElementById('gender').value || null,
-        birthday: document.getElementById('birthday').value || null
-      };
+      const pageCustomerId = document.getElementById('pageCustomerId').value.trim();
+      const phone = document.getElementById('phone').value.trim();
 
       try {
         const res = await fetch('/api/update-customer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            page_id: PAGE_ID,
+            page_customer_id: pageCustomerId,
+            phone: phone
+          })
         });
 
         const data = await res.json();
@@ -112,7 +128,7 @@
         resultEl.style.display = 'block';
         if (res.ok) {
           resultEl.className = 'success';
-          resultEl.textContent = 'Cập nhật thành công!';
+          resultEl.textContent = 'Cập nhật số điện thoại thành công!';
         } else {
           resultEl.className = 'error';
           resultEl.textContent = data.message || JSON.stringify(data) || 'Có lỗi xảy ra';
