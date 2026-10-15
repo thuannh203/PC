@@ -3,30 +3,16 @@ export async function onRequestPost(context) {
 
   try {
     const body = await request.json();
-    const { page_id, page_customer_id, name, phone, gender, birthday } = body;
+    const { page_id, page_customer_id, phone } = body;
 
-    if (!page_id || !page_customer_id) {
-      return new Response(JSON.stringify({ message: 'Thiếu page_id hoặc page_customer_id' }), {
+    if (!page_id || !page_customer_id || !phone) {
+      return new Response(JSON.stringify({ message: 'Thiếu thông tin bắt buộc' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
     const PAGE_ACCESS_TOKEN = env.PAGE_ACCESS_TOKEN;
-
-    const changes = {};
-    if (name) changes.name = name;
-    if (gender) changes.gender = gender;
-    if (birthday) changes.birthday = birthday;
-    if (phone) changes.phone_numbers = [phone];
-
-    // Nếu không có field nào để update thì báo lỗi
-    if (Object.keys(changes).length === 0) {
-      return new Response(JSON.stringify({ message: 'Không có thông tin nào để cập nhật' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
 
     const url = `https://pages.fm/api/public_api/v1/pages/${page_id}/page_customers/${page_customer_id}?page_access_token=${PAGE_ACCESS_TOKEN}`;
 
@@ -36,7 +22,11 @@ export async function onRequestPost(context) {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ changes })
+      body: JSON.stringify({
+        changes: {
+          phone_numbers: [phone]
+        }
+      })
     });
 
     const data = await pancakeRes.json();
