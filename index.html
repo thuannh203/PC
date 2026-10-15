@@ -62,7 +62,7 @@
     // ===== 1. Load danh sách Page khi mở trang =====
     async function loadPages() {
       try {
-        const res = await fetch('/functions/api/list-pages');
+        const res = await fetch('/api/list-pages');
         const data = await res.json();
 
         if (!res.ok) throw new Error(data.message || 'Không lấy được danh sách page');
@@ -101,7 +101,7 @@
       };
 
       try {
-        const res = await fetch('/functions/api/update-customer', {
+        const res = await fetch('/api/update-customer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
