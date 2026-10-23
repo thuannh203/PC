@@ -80,13 +80,13 @@
       <label>Page</label>
       <input type="text" value="Thời Trang Nữ 2 - 106926415478660" disabled>
 
-      <label>Conversation ID</label>
-      <input type="text" id="conversationId" required placeholder="Nhập Conversation ID">
-      <div class="hint">Nhập xong sẽ tự động lấy UUID</div>
+      <label>Link hội thoại</label>
+      <input type="text" id="conversationLink" required placeholder="Dán link hội thoại (có c_id=...)">
+      <div class="hint">Ví dụ: https://pancake.vn/HERBE2820?c_id=106926415478660_28980807314888865</div>
       <div class="loading-text" id="loadingText">Đang lấy UUID...</div>
 
       <label>Page Customer ID (UUID)</label>
-      <input type="text" id="pageCustomerId" readonly placeholder="Sẽ tự điền sau khi nhập Conversation ID">
+      <input type="text" id="pageCustomerId" readonly placeholder="Sẽ tự điền sau khi dán link">
 
       <label>Số điện thoại</label>
       <input type="text" id="phone" required placeholder="0901234567">
@@ -103,22 +103,41 @@
     const form = document.getElementById('form');
     const resultEl = document.getElementById('result');
     const submitBtn = document.getElementById('submitBtn');
-    const conversationIdInput = document.getElementById('conversationId');
+    const conversationLinkInput = document.getElementById('conversationLink');
     const pageCustomerIdInput = document.getElementById('pageCustomerId');
     const loadingText = document.getElementById('loadingText');
 
-    // ===== Tự động lấy UUID khi rời khỏi ô Conversation ID =====
-    conversationIdInput.addEventListener('blur', async () => {
-      const conversationId = conversationIdInput.value.trim();
+    // Hàm tách c_id từ link
+    function extractConversationId(link) {
+      try {
+        const url = new URL(link.trim());
+        const cId = url.searchParams.get('c_id');
+        return cId || null;
+      } catch (e) {
+        // Nếu người dùng chỉ dán mỗi phần c_id
+        if (link.includes('_') && !link.includes('http')) {
+          return link.trim();
+        }
+        return null;
+      }
+    }
 
-      // Nếu trống thì xóa UUID cũ
-      if (!conversationId) {
+    // ===== Tự động lấy UUID khi rời khỏi ô Link hội thoại =====
+    conversationLinkInput.addEventListener('blur', async () => {
+      const link = conversationLinkInput.value.trim();
+
+      if (!link) {
         pageCustomerIdInput.value = '';
         return;
       }
 
-      // Nếu UUID đã có và conversation ID không đổi thì không gọi lại
-      // (có thể bỏ điều kiện này nếu muốn luôn refresh)
+      const conversationId = extractConversationId(link);
+
+      if (!conversationId) {
+        pageCustomerIdInput.value = '';
+        showResult('Không tìm thấy c_id trong link. Hãy dán đúng link hội thoại.', false);
+        return;
+      }
 
       loadingText.style.display = 'block';
       resultEl.style.display = 'none';
@@ -134,10 +153,11 @@
           throw new Error(data.message || 'Không lấy được conversation');
         }
 
+        // Lấy customer_id theo response endpoint messages
         const customerId = data?.customers?.[0]?.id;
 
         if (!customerId) {
-          throw new Error('Không tìm thấy page_customer_id trong response');
+          throw new Error('Không tìm thấy customer_id trong response');
         }
 
         pageCustomerIdInput.value = customerId;
@@ -160,7 +180,7 @@
       const phone = document.getElementById('phone').value.trim();
 
       if (!pageCustomerId) {
-        showResult('Chưa có Page Customer ID. Hãy nhập Conversation ID trước.', false);
+        showResult('Chưa có Page Customer ID. Hãy dán link hội thoại trước.', false);
         submitBtn.disabled = false;
         return;
       }
