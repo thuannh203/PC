@@ -70,6 +70,13 @@
     .error { background: #fee2e2; color: #991b1b; }
     .hint { font-size: 12px; color: #6b7280; margin-top: 4px; }
     .loading-text { font-size: 12px; color: #2563eb; margin-top: 4px; display: none; }
+    .customer-name {
+      font-size: 13px;
+      color: #2563eb;
+      margin-top: 6px;
+      display: none;
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
@@ -83,10 +90,11 @@
       <label>Link hội thoại</label>
       <input type="text" id="conversationLink" required placeholder="Dán link hội thoại (có c_id=...)">
       <div class="hint">Ví dụ: https://pancake.vn/HERBE2820?c_id=106926415478660_28980807314888865</div>
-      <div class="loading-text" id="loadingText">Đang lấy UUID...</div>
+      <div class="loading-text" id="loadingText">Đang lấy thông tin khách hàng...</div>
 
       <label>Page Customer ID (UUID)</label>
       <input type="text" id="pageCustomerId" readonly placeholder="Sẽ tự điền sau khi dán link">
+      <div class="customer-name" id="customerName"></div>
 
       <label>Số điện thoại</label>
       <input type="text" id="phone" required placeholder="0901234567">
@@ -105,16 +113,14 @@
     const submitBtn = document.getElementById('submitBtn');
     const conversationLinkInput = document.getElementById('conversationLink');
     const pageCustomerIdInput = document.getElementById('pageCustomerId');
+    const customerNameEl = document.getElementById('customerName');
     const loadingText = document.getElementById('loadingText');
 
-    // Hàm tách c_id từ link
     function extractConversationId(link) {
       try {
         const url = new URL(link.trim());
-        const cId = url.searchParams.get('c_id');
-        return cId || null;
+        return url.searchParams.get('c_id') || null;
       } catch (e) {
-        // Nếu người dùng chỉ dán mỗi phần c_id
         if (link.includes('_') && !link.includes('http')) {
           return link.trim();
         }
@@ -122,12 +128,13 @@
       }
     }
 
-    // ===== Tự động lấy UUID khi rời khỏi ô Link hội thoại =====
+    // ===== Tự động lấy UUID + tên khách hàng =====
     conversationLinkInput.addEventListener('blur', async () => {
       const link = conversationLinkInput.value.trim();
 
       if (!link) {
         pageCustomerIdInput.value = '';
+        customerNameEl.style.display = 'none';
         return;
       }
 
@@ -135,6 +142,7 @@
 
       if (!conversationId) {
         pageCustomerIdInput.value = '';
+        customerNameEl.style.display = 'none';
         showResult('Không tìm thấy c_id trong link. Hãy dán đúng link hội thoại.', false);
         return;
       }
@@ -142,6 +150,7 @@
       loadingText.style.display = 'block';
       resultEl.style.display = 'none';
       pageCustomerIdInput.value = '';
+      customerNameEl.style.display = 'none';
 
       try {
         const res = await fetch(
@@ -149,21 +158,28 @@
         );
         const data = await res.json();
 
-        if (!res.ok) {
-          throw new Error(data.message || 'Không lấy được conversation');
+        if (!res.ok || data.success === false) {
+          throw new Error(data.message || 'Không lấy được thông tin conversation');
         }
 
-        // Lấy customer_id theo response endpoint messages
         const customerId = data?.customers?.[0]?.id;
+        const customerName = data?.customers?.[0]?.name;
 
         if (!customerId) {
-          throw new Error('Không tìm thấy customer_id trong response');
+          throw new Error('Không tìm thấy id khách hàng trong response');
         }
 
         pageCustomerIdInput.value = customerId;
-        showResult('Đã lấy UUID thành công!', true);
+
+        if (customerName) {
+          customerNameEl.textContent = 'Khách hàng: ' + customerName;
+          customerNameEl.style.display = 'block';
+        }
+
+        showResult('Đã lấy thông tin khách hàng thành công!', true);
       } catch (err) {
         pageCustomerIdInput.value = '';
+        customerNameEl.style.display = 'none';
         showResult('Lỗi: ' + err.message, false);
       } finally {
         loadingText.style.display = 'none';
@@ -198,11 +214,19 @@
 
         const data = await res.json();
 
-        if (res.ok) {
-          showResult('Cập nhật số điện thoại thành công!', true);
-        } else {
-          showResult(data.message || JSON.stringify(data) || 'Có lỗi xảy ra', false);
+        // Xử lý lỗi từ Pancake (success: false)
+        if (!res.ok || data.success === false) {
+          const errorMsg = data.message || 'Cập nhật thất bại';
+          // Làm đẹp một số message lỗi phổ biến
+          if (errorMsg.toLowerCase().includes('unknow') || errorMsg.toLowerCase().includes('unknown')) {
+            showResult('Cập nhật thất bại: Lỗi không xác định từ hệ thống Pancake. Vui lòng kiểm tra lại UUID hoặc số điện thoại.', false);
+          } else {
+            showResult('Cập nhật thất bại: ' + errorMsg, false);
+          }
+          return;
         }
+
+        showResult('Cập nhật số điện thoại thành công!', true);
       } catch (err) {
         showResult('Lỗi kết nối: ' + err.message, false);
       } finally {
