@@ -38,12 +38,36 @@
       font-size: 15px;
       box-sizing: border-box;
     }
-    input:disabled {
+    input:disabled, input[readonly] {
       background: #f3f4f6;
       color: #6b7280;
       cursor: not-allowed;
     }
-    button {
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .row input {
+      margin-top: 0;
+      flex: 1;
+    }
+    .btn-secondary {
+      padding: 10px 14px;
+      background: #e5e7eb;
+      color: #374151;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-secondary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    button[type="submit"] {
       margin-top: 24px;
       width: 100%;
       padding: 12px;
@@ -55,7 +79,7 @@
       font-weight: 500;
       cursor: pointer;
     }
-    button:disabled {
+    button[type="submit"]:disabled {
       background: #93c5fd;
       cursor: not-allowed;
     }
@@ -66,14 +90,9 @@
       display: none;
       font-size: 14px;
     }
-    .success {
-      background: #dcfce7;
-      color: #166534;
-    }
-    .error {
-      background: #fee2e2;
-      color: #991b1b;
-    }
+    .success { background: #dcfce7; color: #166534; }
+    .error { background: #fee2e2; color: #991b1b; }
+    .hint { font-size: 12px; color: #6b7280; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -84,8 +103,15 @@
       <label>Page</label>
       <input type="text" value="Thời Trang Nữ 2 - 106926415478660" disabled>
 
+      <label>Conversation ID</label>
+      <div class="row">
+        <input type="text" id="conversationId" required placeholder="Nhập Conversation ID">
+        <button type="button" class="btn-secondary" id="btnFetch">Lấy UUID</button>
+      </div>
+      <div class="hint">Nhập Conversation ID rồi bấm "Lấy UUID"</div>
+
       <label>Page Customer ID (UUID)</label>
-      <input type="text" id="pageCustomerId" required placeholder="Nhập UUID của khách hàng">
+      <input type="text" id="pageCustomerId" readonly placeholder="Sẽ tự điền sau khi lấy UUID">
 
       <label>Số điện thoại</label>
       <input type="text" id="phone" required placeholder="0901234567">
@@ -97,20 +123,69 @@
   </div>
 
   <script>
+    const PAGE_ID = "106926415478660";
+
     const form = document.getElementById('form');
     const resultEl = document.getElementById('result');
     const submitBtn = document.getElementById('submitBtn');
+    const btnFetch = document.getElementById('btnFetch');
+    const conversationIdInput = document.getElementById('conversationId');
+    const pageCustomerIdInput = document.getElementById('pageCustomerId');
 
-    // Page ID cố định
-    const PAGE_ID = "106926415478660";
+    // ===== Lấy page_customer_id từ Conversation ID =====
+    btnFetch.addEventListener('click', async () => {
+      const conversationId = conversationIdInput.value.trim();
+      if (!conversationId) {
+        showResult('Vui lòng nhập Conversation ID', false);
+        return;
+      }
 
+      btnFetch.disabled = true;
+      btnFetch.textContent = 'Đang lấy...';
+      resultEl.style.display = 'none';
+
+      try {
+        const res = await fetch(
+          `/api/get-conversation?page_id=${PAGE_ID}&conversation_id=${encodeURIComponent(conversationId)}`
+        );
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message || 'Không lấy được conversation');
+        }
+
+        // Lấy giá trị theo path bạn chỉ định
+        const customerId = data?.conversations?.[0]?.customers?.[0]?.id;
+
+        if (!customerId) {
+          throw new Error('Không tìm thấy page_customer_id trong response');
+        }
+
+        pageCustomerIdInput.value = customerId;
+        showResult('Đã lấy UUID thành công!', true);
+      } catch (err) {
+        pageCustomerIdInput.value = '';
+        showResult('Lỗi: ' + err.message, false);
+      } finally {
+        btnFetch.disabled = false;
+        btnFetch.textContent = 'Lấy UUID';
+      }
+    });
+
+    // ===== Submit cập nhật SĐT =====
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       submitBtn.disabled = true;
       resultEl.style.display = 'none';
 
-      const pageCustomerId = document.getElementById('pageCustomerId').value.trim();
+      const pageCustomerId = pageCustomerIdInput.value.trim();
       const phone = document.getElementById('phone').value.trim();
+
+      if (!pageCustomerId) {
+        showResult('Chưa có Page Customer ID. Hãy bấm "Lấy UUID" trước.', false);
+        submitBtn.disabled = false;
+        return;
+      }
 
       try {
         const res = await fetch('/api/update-customer', {
@@ -125,22 +200,23 @@
 
         const data = await res.json();
 
-        resultEl.style.display = 'block';
         if (res.ok) {
-          resultEl.className = 'success';
-          resultEl.textContent = 'Cập nhật số điện thoại thành công!';
+          showResult('Cập nhật số điện thoại thành công!', true);
         } else {
-          resultEl.className = 'error';
-          resultEl.textContent = data.message || JSON.stringify(data) || 'Có lỗi xảy ra';
+          showResult(data.message || JSON.stringify(data) || 'Có lỗi xảy ra', false);
         }
       } catch (err) {
-        resultEl.style.display = 'block';
-        resultEl.className = 'error';
-        resultEl.textContent = 'Lỗi kết nối: ' + err.message;
+        showResult('Lỗi kết nối: ' + err.message, false);
       } finally {
         submitBtn.disabled = false;
       }
     });
+
+    function showResult(message, isSuccess) {
+      resultEl.style.display = 'block';
+      resultEl.className = isSuccess ? 'success' : 'error';
+      resultEl.textContent = message;
+    }
   </script>
 </body>
 </html>
