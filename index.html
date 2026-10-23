@@ -134,7 +134,7 @@
           throw new Error(data.message || 'Không lấy được conversation');
         }
 
-        const customerId = data?.customers?.[0]?.customer_id;
+        const customerId = data?.customers?.[0]?.id;
 
         if (!customerId) {
           throw new Error('Không tìm thấy page_customer_id trong response');
