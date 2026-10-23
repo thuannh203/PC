@@ -16,7 +16,7 @@ export async function onRequestGet(context) {
     const PAGE_ACCESS_TOKEN = env.PAGE_ACCESS_TOKEN;
 
     // Gọi API list conversations, dùng conversation_id làm last_conversation_id
-    const apiUrl = `https://pages.fm/api/public_api/v2/pages/${page_id}/conversations?last_conversation_id=${conversation_id}&page_access_token=${PAGE_ACCESS_TOKEN}`;
+    const apiUrl = `https://pages.fm/api/public_api/v2/pages/${page_id}/conversations/${conversation_id}/messages?page_access_token=${PAGE_ACCESS_TOKEN}`;
 
     const res = await fetch(apiUrl, {
       headers: { 'Accept': 'application/json' }
