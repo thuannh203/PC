@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cập nhật SĐT khách hàng</title>
+  <title>Cập nhật Page & Conversation cho đơn hàng</title>
   <style>
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      max-width: 420px;
+      max-width: 480px;
       margin: 40px auto;
       padding: 0 16px;
       background: #f8fafc;
@@ -19,8 +19,13 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     h2 {
-      margin: 0 0 20px;
+      margin: 0 0 8px;
       font-size: 20px;
+    }
+    .desc {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 20px;
     }
     label {
       display: block;
@@ -35,14 +40,28 @@
       margin-top: 6px;
       border: 1px solid #d1d5db;
       border-radius: 8px;
-      font-size: 15px;
+      font-size: 14px;
       box-sizing: border-box;
     }
-    input:disabled, input[readonly] {
+    input[readonly] {
       background: #f3f4f6;
       color: #6b7280;
-      cursor: not-allowed;
     }
+    .hint {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+    .parsed {
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: #f0f9ff;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #0369a1;
+      display: none;
+    }
+    .parsed div { margin: 2px 0; }
     button[type="submit"] {
       margin-top: 24px;
       width: 100%;
@@ -68,165 +87,150 @@
     }
     .success { background: #dcfce7; color: #166534; }
     .error { background: #fee2e2; color: #991b1b; }
-    .hint { font-size: 12px; color: #6b7280; margin-top: 4px; }
-    .loading-text { font-size: 12px; color: #2563eb; margin-top: 4px; display: none; }
-    .customer-name {
-      font-size: 13px;
-      color: #2563eb;
-      margin-top: 6px;
-      display: none;
-      font-weight: 500;
-    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>Cập nhật số điện thoại</h2>
+    <h2>Cập nhật Page & Conversation</h2>
+    <p class="desc">Dán link đơn hàng và link hội thoại để gắn page_id + conversation_id vào đơn.</p>
 
     <form id="form">
-      <label>Page</label>
-      <input type="text" value="Thời Trang Nữ HERBE - 342733032498353" disabled>
+      <!-- Order Link -->
+      <label>Link đơn hàng</label>
+      <input type="text" id="orderLink" required
+        placeholder="https://pos.pancake.vn/shop/5215640/order?order_id=360301035815098">
+      <div class="hint">Lấy shop_id và order_id từ link</div>
+      <div class="parsed" id="orderParsed"></div>
 
+      <!-- Conversation Link -->
       <label>Link hội thoại</label>
-      <input type="text" id="conversationLink" required placeholder="Dán link hội thoại (có c_id=...)">
-      <div class="hint">Ví dụ: https://pancake.vn/HERBE2820?c_id=342733032498353_28980807314888865</div>
-      <div class="loading-text" id="loadingText">Đang lấy thông tin khách hàng...</div>
+      <input type="text" id="conversationLink" required
+        placeholder="https://pancake.vn/HERBE2820?c_id=106926415478660_29706226642294167">
+      <div class="hint">Lấy page_id và conversation_id từ c_id</div>
+      <div class="parsed" id="conversationParsed"></div>
 
-      <label>Page Customer ID (UUID)</label>
-      <input type="text" id="pageCustomerId" readonly placeholder="Sẽ tự điền sau khi dán link">
-      <div class="customer-name" id="customerName"></div>
-
-      <label>Số điện thoại</label>
-      <input type="text" id="phone" required placeholder="0901234567">
-
-      <button type="submit" id="submitBtn">Cập nhật số điện thoại</button>
+      <button type="submit" id="submitBtn">Cập nhật đơn hàng</button>
     </form>
 
     <div id="result"></div>
   </div>
 
   <script>
-    const PAGE_ID = "342733032498353";
-
     const form = document.getElementById('form');
-    const resultEl = document.getElementById('result');
-    const submitBtn = document.getElementById('submitBtn');
+    const orderLinkInput = document.getElementById('orderLink');
     const conversationLinkInput = document.getElementById('conversationLink');
-    const pageCustomerIdInput = document.getElementById('pageCustomerId');
-    const customerNameEl = document.getElementById('customerName');
-    const loadingText = document.getElementById('loadingText');
+    const orderParsedEl = document.getElementById('orderParsed');
+    const conversationParsedEl = document.getElementById('conversationParsed');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultEl = document.getElementById('result');
 
-    function extractConversationId(link) {
+    // ===== Parse Order Link =====
+    // https://pos.pancake.vn/shop/5215640/order?order_id=360301035815098
+    function parseOrderLink(link) {
       try {
         const url = new URL(link.trim());
-        return url.searchParams.get('c_id') || null;
-      } catch (e) {
-        if (link.includes('_') && !link.includes('http')) {
-          return link.trim();
-        }
+        const orderId = url.searchParams.get('order_id');
+
+        // Lấy shop_id từ path: /shop/5215640/order
+        const match = url.pathname.match(/\/shop\/(\d+)/);
+        const shopId = match ? match[1] : null;
+
+        if (!shopId || !orderId) return null;
+        return { shop_id: shopId, order_id: orderId };
+      } catch {
         return null;
       }
     }
 
-    // ===== Tự động lấy UUID + tên khách hàng =====
-    conversationLinkInput.addEventListener('blur', async () => {
-      const link = conversationLinkInput.value.trim();
-
-      if (!link) {
-        pageCustomerIdInput.value = '';
-        customerNameEl.style.display = 'none';
-        return;
-      }
-
-      const conversationId = extractConversationId(link);
-
-      if (!conversationId) {
-        pageCustomerIdInput.value = '';
-        customerNameEl.style.display = 'none';
-        showResult('Không tìm thấy c_id trong link. Hãy dán đúng link hội thoại.', false);
-        return;
-      }
-
-      loadingText.style.display = 'block';
-      resultEl.style.display = 'none';
-      pageCustomerIdInput.value = '';
-      customerNameEl.style.display = 'none';
-
+    // ===== Parse Conversation Link =====
+    // https://pancake.vn/HERBE2820?c_id=106926415478660_29706226642294167
+    function parseConversationLink(link) {
       try {
-        const res = await fetch(
-          `/api/get-conversation?page_id=${PAGE_ID}&conversation_id=${encodeURIComponent(conversationId)}`
-        );
-        const data = await res.json();
+        const url = new URL(link.trim());
+        const cId = url.searchParams.get('c_id');
+        if (!cId) return null;
 
-        if (!res.ok || data.success === false) {
-          throw new Error(data.message || 'Không lấy được thông tin conversation');
-        }
+        const parts = cId.split('_');
+        if (parts.length < 2) return null;
 
-        const customerId = data?.customers?.[0]?.id;
-        const customerName = data?.customers?.[0]?.name;
+        return {
+          page_id: parts[0],
+          conversation_id: cId
+        };
+      } catch {
+        return null;
+      }
+    }
 
-        if (!customerId) {
-          throw new Error('Không tìm thấy id khách hàng trong response');
-        }
-
-        pageCustomerIdInput.value = customerId;
-
-        if (customerName) {
-          customerNameEl.textContent = 'Khách hàng: ' + customerName;
-          customerNameEl.style.display = 'block';
-        }
-
-        showResult('Đã lấy thông tin khách hàng thành công!', true);
-      } catch (err) {
-        pageCustomerIdInput.value = '';
-        customerNameEl.style.display = 'none';
-        showResult('Lỗi: ' + err.message, false);
-      } finally {
-        loadingText.style.display = 'none';
+    // Preview khi blur Order Link
+    orderLinkInput.addEventListener('blur', () => {
+      const parsed = parseOrderLink(orderLinkInput.value);
+      if (parsed) {
+        orderParsedEl.style.display = 'block';
+        orderParsedEl.innerHTML = `
+          <div><strong>shop_id:</strong> ${parsed.shop_id}</div>
+          <div><strong>order_id:</strong> ${parsed.order_id}</div>
+        `;
+      } else {
+        orderParsedEl.style.display = 'none';
       }
     });
 
-    // ===== Submit cập nhật SĐT =====
+    // Preview khi blur Conversation Link
+    conversationLinkInput.addEventListener('blur', () => {
+      const parsed = parseConversationLink(conversationLinkInput.value);
+      if (parsed) {
+        conversationParsedEl.style.display = 'block';
+        conversationParsedEl.innerHTML = `
+          <div><strong>page_id:</strong> ${parsed.page_id}</div>
+          <div><strong>conversation_id:</strong> ${parsed.conversation_id}</div>
+        `;
+      } else {
+        conversationParsedEl.style.display = 'none';
+      }
+    });
+
+    // ===== Submit =====
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       submitBtn.disabled = true;
       resultEl.style.display = 'none';
 
-      const pageCustomerId = pageCustomerIdInput.value.trim();
-      const phone = document.getElementById('phone').value.trim();
+      const orderData = parseOrderLink(orderLinkInput.value);
+      const convData = parseConversationLink(conversationLinkInput.value);
 
-      if (!pageCustomerId) {
-        showResult('Chưa có Page Customer ID. Hãy dán link hội thoại trước.', false);
+      if (!orderData) {
+        showResult('Link đơn hàng không hợp lệ. Cần có shop_id và order_id.', false);
+        submitBtn.disabled = false;
+        return;
+      }
+
+      if (!convData) {
+        showResult('Link hội thoại không hợp lệ. Cần có c_id dạng pageId_xxx.', false);
         submitBtn.disabled = false;
         return;
       }
 
       try {
-        const res = await fetch('/api/update-customer', {
+        const res = await fetch('/api/update-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            page_id: PAGE_ID,
-            page_customer_id: pageCustomerId,
-            phone: phone
+            shop_id: orderData.shop_id,
+            order_id: orderData.order_id,
+            page_id: convData.page_id,
+            conversation_id: convData.conversation_id
           })
         });
 
         const data = await res.json();
 
-        // Xử lý lỗi từ Pancake (success: false)
         if (!res.ok || data.success === false) {
-          const errorMsg = data.message || 'Cập nhật thất bại';
-          // Làm đẹp một số message lỗi phổ biến
-          if (errorMsg.toLowerCase().includes('unknow') || errorMsg.toLowerCase().includes('unknown')) {
-            showResult('Cập nhật thất bại: Lỗi không xác định từ hệ thống Pancake. Vui lòng kiểm tra lại UUID hoặc số điện thoại.', false);
-          } else {
-            showResult('Cập nhật thất bại: ' + errorMsg, false);
-          }
-          return;
+          const msg = data.message || 'Cập nhật thất bại';
+          showResult('Lỗi: ' + msg, false);
+        } else {
+          showResult('Cập nhật page_id & conversation_id thành công!', true);
         }
-
-        showResult('Cập nhật số điện thoại thành công!', true);
       } catch (err) {
         showResult('Lỗi kết nối: ' + err.message, false);
       } finally {
