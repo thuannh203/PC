@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cập nhật đơn + SĐT khách</title>
+  <title>Pancake Tools</title>
   <style>
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      max-width: 480px;
+      max-width: 520px;
       margin: 40px auto;
       padding: 0 16px;
       background: #f8fafc;
@@ -19,15 +19,38 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     h2 { margin: 0 0 8px; font-size: 20px; }
-    .desc { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+    .desc { font-size: 13px; color: #6b7280; margin-bottom: 16px; }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      background: #f3f4f6;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+    }
+    .tab.active {
+      background: #2563eb;
+      color: white;
+      border-color: #2563eb;
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
     label {
       display: block;
-      margin-top: 16px;
+      margin-top: 14px;
       font-weight: 500;
       font-size: 14px;
       color: #374151;
     }
-    input {
+    input, textarea {
       width: 100%;
       padding: 10px 12px;
       margin-top: 6px;
@@ -35,6 +58,12 @@
       border-radius: 8px;
       font-size: 14px;
       box-sizing: border-box;
+      font-family: inherit;
+    }
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+      line-height: 1.5;
     }
     .hint { font-size: 12px; color: #9ca3af; margin-top: 4px; }
     .parsed {
@@ -48,14 +77,14 @@
     }
     .parsed div { margin: 2px 0; }
     button[type="submit"] {
-      margin-top: 24px;
+      margin-top: 20px;
       width: 100%;
       padding: 12px;
       background: #2563eb;
       color: white;
       border: none;
       border-radius: 8px;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 500;
       cursor: pointer;
     }
@@ -63,13 +92,15 @@
       background: #93c5fd;
       cursor: not-allowed;
     }
-    #result {
+    #result, #result2 {
       margin-top: 16px;
       padding: 12px 14px;
       border-radius: 8px;
       display: none;
-      font-size: 14px;
+      font-size: 13px;
       white-space: pre-line;
+      max-height: 280px;
+      overflow-y: auto;
     }
     .success { background: #dcfce7; color: #166534; }
     .error { background: #fee2e2; color: #991b1b; }
@@ -84,43 +115,69 @@
 </head>
 <body>
   <div class="card">
-    <h2>Cập nhật đơn + SĐT khách</h2>
-    <p class="desc">
-      1. Gắn page_id & conversation_id vào đơn<br>
-      2. Lấy page_customer_id từ hội thoại<br>
-      3. Cập nhật SĐT khách từ bill_phone_number của đơn
-    </p>
+    <h2>Pancake Tools</h2>
 
-    <form id="form">
-      <label>Link đơn hàng</label>
-      <input type="text" id="orderLink" required
-        placeholder="https://pos.pancake.vn/shop/5215640/order?order_id=360301035815098">
-      <div class="hint">Lấy shop_id và order_id</div>
-      <div class="parsed" id="orderParsed"></div>
+    <div class="tabs">
+      <div class="tab active" data-tab="tab1">Page + Conversation + SĐT</div>
+      <div class="tab" data-tab="tab2">Cập nhật COD / CK</div>
+    </div>
 
-      <label>Link hội thoại</label>
-      <input type="text" id="conversationLink" required
-        placeholder="https://pancake.vn/HERBE2820?c_id=106926415478660_29706226642294167">
-      <div class="hint">Lấy page_id và conversation_id</div>
-      <div class="parsed" id="conversationParsed"></div>
+    <!-- ===== TAB 1 ===== -->
+    <div class="panel active" id="tab1">
+      <p class="desc">
+        Gắn page_id & conversation_id vào đơn, rồi cập nhật SĐT khách từ bill_phone_number.
+      </p>
+      <form id="form1">
+        <label>Link đơn hàng</label>
+        <input type="text" id="orderLink" required
+          placeholder="https://pos.pancake.vn/shop/5215640/order?order_id=360301035815098">
+        <div class="hint">Lấy shop_id và order_id</div>
+        <div class="parsed" id="orderParsed"></div>
 
-      <button type="submit" id="submitBtn">Chạy cập nhật</button>
-    </form>
+        <label>Link hội thoại</label>
+        <input type="text" id="conversationLink" required
+          placeholder="https://pancake.vn/HERBE2820?c_id=106926415478660_29706226642294167">
+        <div class="hint">Lấy page_id và conversation_id</div>
+        <div class="parsed" id="conversationParsed"></div>
 
-    <div class="steps" id="steps"></div>
-    <div id="result"></div>
+        <button type="submit" id="submitBtn1">Chạy cập nhật</button>
+      </form>
+      <div class="steps" id="steps1"></div>
+      <div id="result"></div>
+    </div>
+
+    <!-- ===== TAB 2 ===== -->
+    <div class="panel" id="tab2">
+      <p class="desc">
+        Với mỗi order_id: GET đơn → PUT với transfer_money = total_price, cod = 0.
+      </p>
+      <form id="form2">
+        <label>Shop ID</label>
+        <input type="text" id="shopId" required placeholder="5215640">
+
+        <label>Danh sách mã đơn hàng</label>
+        <textarea id="orderIds" required placeholder="360301035815098&#10;360301035815099&#10;360301035815100"></textarea>
+        <div class="hint">Mỗi dòng 1 order_id</div>
+
+        <button type="submit" id="submitBtn2">Cập nhật COD / CK</button>
+      </form>
+      <div class="steps" id="steps2"></div>
+      <div id="result2"></div>
+    </div>
   </div>
 
   <script>
-    const form = document.getElementById('form');
-    const orderLinkInput = document.getElementById('orderLink');
-    const conversationLinkInput = document.getElementById('conversationLink');
-    const orderParsedEl = document.getElementById('orderParsed');
-    const conversationParsedEl = document.getElementById('conversationParsed');
-    const submitBtn = document.getElementById('submitBtn');
-    const resultEl = document.getElementById('result');
-    const stepsEl = document.getElementById('steps');
+    // ===== Tabs =====
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
 
+    // ===== Helpers parse (Tab 1) =====
     function parseOrderLink(link) {
       try {
         const url = new URL(link.trim());
@@ -129,9 +186,7 @@
         const shopId = match ? match[1] : null;
         if (!shopId || !orderId) return null;
         return { shop_id: shopId, order_id: orderId };
-      } catch {
-        return null;
-      }
+      } catch { return null; }
     }
 
     function parseConversationLink(link) {
@@ -142,44 +197,42 @@
         const parts = cId.split('_');
         if (parts.length < 2) return null;
         return { page_id: parts[0], conversation_id: cId };
-      } catch {
-        return null;
-      }
+      } catch { return null; }
     }
+
+    const orderLinkInput = document.getElementById('orderLink');
+    const conversationLinkInput = document.getElementById('conversationLink');
+    const orderParsedEl = document.getElementById('orderParsed');
+    const conversationParsedEl = document.getElementById('conversationParsed');
 
     orderLinkInput.addEventListener('blur', () => {
       const parsed = parseOrderLink(orderLinkInput.value);
       if (parsed) {
         orderParsedEl.style.display = 'block';
-        orderParsedEl.innerHTML = `
-          <div><strong>shop_id:</strong> ${parsed.shop_id}</div>
-          <div><strong>order_id:</strong> ${parsed.order_id}</div>
-        `;
-      } else {
-        orderParsedEl.style.display = 'none';
-      }
+        orderParsedEl.innerHTML = `<div><strong>shop_id:</strong> ${parsed.shop_id}</div><div><strong>order_id:</strong> ${parsed.order_id}</div>`;
+      } else orderParsedEl.style.display = 'none';
     });
 
     conversationLinkInput.addEventListener('blur', () => {
       const parsed = parseConversationLink(conversationLinkInput.value);
       if (parsed) {
         conversationParsedEl.style.display = 'block';
-        conversationParsedEl.innerHTML = `
-          <div><strong>page_id:</strong> ${parsed.page_id}</div>
-          <div><strong>conversation_id:</strong> ${parsed.conversation_id}</div>
-        `;
-      } else {
-        conversationParsedEl.style.display = 'none';
-      }
+        conversationParsedEl.innerHTML = `<div><strong>page_id:</strong> ${parsed.page_id}</div><div><strong>conversation_id:</strong> ${parsed.conversation_id}</div>`;
+      } else conversationParsedEl.style.display = 'none';
     });
 
-    function setSteps(text) {
-      stepsEl.style.display = 'block';
-      stepsEl.textContent = text;
+    function showResult(el, message, isSuccess) {
+      el.style.display = 'block';
+      el.className = isSuccess ? 'success' : 'error';
+      el.textContent = message;
     }
 
-    form.addEventListener('submit', async (e) => {
+    // ===== TAB 1: Page + Conversation + SĐT =====
+    document.getElementById('form1').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn1');
+      const resultEl = document.getElementById('result');
+      const stepsEl = document.getElementById('steps1');
       submitBtn.disabled = true;
       resultEl.style.display = 'none';
       stepsEl.style.display = 'none';
@@ -188,19 +241,19 @@
       const convData = parseConversationLink(conversationLinkInput.value);
 
       if (!orderData) {
-        showResult('Link đơn hàng không hợp lệ.', false);
+        showResult(resultEl, 'Link đơn hàng không hợp lệ.', false);
         submitBtn.disabled = false;
         return;
       }
       if (!convData) {
-        showResult('Link hội thoại không hợp lệ.', false);
+        showResult(resultEl, 'Link hội thoại không hợp lệ.', false);
         submitBtn.disabled = false;
         return;
       }
 
       try {
-        // ===== Bước 1: Cập nhật order =====
-        setSteps('Bước 1/3: Đang cập nhật đơn hàng (page_id + conversation_id)...');
+        stepsEl.style.display = 'block';
+        stepsEl.textContent = 'Bước 1/3: Cập nhật đơn (page_id + conversation_id)...';
 
         const orderRes = await fetch('/api/update-order', {
           method: 'POST',
@@ -212,49 +265,32 @@
             conversation_id: convData.conversation_id
           })
         });
-
         const orderResult = await orderRes.json();
-        console.log('update-order response:', orderResult);
-
         if (!orderRes.ok || orderResult.success === false) {
-          throw new Error(orderResult.message || 'Cập nhật đơn hàng thất bại');
+          throw new Error(orderResult.message || 'Cập nhật đơn thất bại');
         }
 
         const order = orderResult.data || orderResult;
         const billPhone = order.bill_phone_number;
+        if (!billPhone) throw new Error('Không có bill_phone_number');
 
-        if (!billPhone) {
-          throw new Error('Không tìm thấy bill_phone_number trong response đơn hàng');
-        }
+        stepsEl.textContent =
+          `Bước 1/3: OK (SĐT: ${billPhone})\nBước 2/3: Lấy page_customer_id từ hội thoại...`;
 
-        setSteps(
-          `Bước 1/3: OK (SĐT: ${billPhone})\n` +
-          `Bước 2/3: Đang lấy page_customer_id từ hội thoại...`
-        );
-
-        // ===== Bước 2: Lấy page_customer_id từ conversation =====
         const convRes = await fetch(
           `/api/get-conversation?page_id=${encodeURIComponent(convData.page_id)}&conversation_id=${encodeURIComponent(convData.conversation_id)}`
         );
         const convResult = await convRes.json();
-        console.log('get-conversation response:', convResult);
-
         if (!convRes.ok || convResult.success === false) {
           throw new Error(convResult.message || 'Không lấy được conversation');
         }
 
         const pageCustomerId = convResult?.customers?.[0]?.id;
-        if (!pageCustomerId) {
-          throw new Error('Không tìm thấy customers[0].id trong response hội thoại');
-        }
+        if (!pageCustomerId) throw new Error('Không tìm thấy customers[0].id');
 
-        setSteps(
-          `Bước 1/3: OK (SĐT: ${billPhone})\n` +
-          `Bước 2/3: OK (page_customer_id: ${pageCustomerId})\n` +
-          `Bước 3/3: Đang cập nhật SĐT khách hàng...`
-        );
+        stepsEl.textContent =
+          `Bước 1/3: OK\nBước 2/3: OK (${pageCustomerId})\nBước 3/3: Cập nhật SĐT khách...`;
 
-        // ===== Bước 3: Cập nhật SĐT khách =====
         const customerRes = await fetch('/api/update-customer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -264,35 +300,109 @@
             phone: billPhone
           })
         });
-
         const customerResult = await customerRes.json();
-        console.log('update-customer response:', customerResult);
-
         if (!customerRes.ok || customerResult.success === false) {
-          throw new Error(customerResult.message || 'Cập nhật SĐT khách hàng thất bại');
+          throw new Error(customerResult.message || 'Cập nhật SĐT thất bại');
         }
 
-        showResult(
-          `Thành công!\n` +
-          `- Đã gắn page_id & conversation_id vào đơn\n` +
-          `- Đã cập nhật SĐT khách: ${billPhone}\n` +
-          `- page_customer_id: ${pageCustomerId}`,
+        showResult(resultEl,
+          `Thành công!\n- Đã gắn page_id & conversation_id\n- SĐT khách: ${billPhone}\n- page_customer_id: ${pageCustomerId}`,
           true
         );
-        setSteps('Hoàn tất cả 3 bước.');
+        stepsEl.textContent = 'Hoàn tất 3 bước.';
       } catch (err) {
-        console.error(err);
-        showResult('Lỗi: ' + err.message, false);
+        showResult(resultEl, 'Lỗi: ' + err.message, false);
       } finally {
         submitBtn.disabled = false;
       }
     });
 
-    function showResult(message, isSuccess) {
-      resultEl.style.display = 'block';
-      resultEl.className = isSuccess ? 'success' : 'error';
-      resultEl.textContent = message;
-    }
+    // ===== TAB 2: COD / transfer_money =====
+    document.getElementById('form2').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn2');
+      const resultEl = document.getElementById('result2');
+      const stepsEl = document.getElementById('steps2');
+      submitBtn.disabled = true;
+      resultEl.style.display = 'none';
+
+      const shopId = document.getElementById('shopId').value.trim();
+      const raw = document.getElementById('orderIds').value.trim();
+      const orderIds = raw
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (!shopId) {
+        showResult(resultEl, 'Thiếu Shop ID.', false);
+        submitBtn.disabled = false;
+        return;
+      }
+      if (orderIds.length === 0) {
+        showResult(resultEl, 'Danh sách order_id trống.', false);
+        submitBtn.disabled = false;
+        return;
+      }
+
+      const logs = [];
+      let okCount = 0;
+      let failCount = 0;
+
+      stepsEl.style.display = 'block';
+
+      for (let i = 0; i < orderIds.length; i++) {
+        const orderId = orderIds[i];
+        stepsEl.textContent = `Đang xử lý ${i + 1}/${orderIds.length}: ${orderId}`;
+
+        try {
+          // Bước 1: GET order
+          const getRes = await fetch(
+            `/api/get-order?shop_id=${encodeURIComponent(shopId)}&order_id=${encodeURIComponent(orderId)}`
+          );
+          const orderData = await getRes.json();
+
+          if (!getRes.ok || orderData.success === false) {
+            throw new Error(orderData.message || 'GET order thất bại');
+          }
+
+          const totalPrice = orderData.total_price;
+          if (totalPrice === undefined || totalPrice === null) {
+            throw new Error('Không có total_price trong response');
+          }
+
+          // Bước 2: PUT transfer_money = total_price, cod = 0
+          const putRes = await fetch('/api/update-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              shop_id: shopId,
+              order_id: orderId,
+              transfer_money: totalPrice,
+              cod: 0
+            })
+          });
+          const putResult = await putRes.json();
+
+          if (!putRes.ok || putResult.success === false) {
+            throw new Error(putResult.message || 'PUT order thất bại');
+          }
+
+          okCount++;
+          logs.push(`✓ ${orderId}: transfer_money=${totalPrice}, cod=0`);
+        } catch (err) {
+          failCount++;
+          logs.push(`✗ ${orderId}: ${err.message}`);
+        }
+      }
+
+      stepsEl.textContent = `Xong: ${okCount} thành công, ${failCount} lỗi / tổng ${orderIds.length}`;
+      showResult(
+        resultEl,
+        logs.join('\n'),
+        failCount === 0
+      );
+      submitBtn.disabled = false;
+    });
   </script>
 </body>
 </html>
