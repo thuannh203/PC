@@ -365,7 +365,7 @@
             throw new Error(orderData.message || 'GET order thất bại');
           }
 
-          const totalPrice = orderData.total_price;
+          const totalPrice = orderData.data.total_price;
           if (totalPrice === undefined || totalPrice === null) {
             throw new Error('Không có total_price trong response');
           }
