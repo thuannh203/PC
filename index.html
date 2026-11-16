@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cập nhật Page & Conversation cho đơn hàng</title>
+  <title>Cập nhật đơn + SĐT khách</title>
   <style>
     body {
       font-family: system-ui, -apple-system, sans-serif;
@@ -18,15 +18,8 @@
       border-radius: 12px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    h2 {
-      margin: 0 0 8px;
-      font-size: 20px;
-    }
-    .desc {
-      font-size: 13px;
-      color: #6b7280;
-      margin-bottom: 20px;
-    }
+    h2 { margin: 0 0 8px; font-size: 20px; }
+    .desc { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
     label {
       display: block;
       margin-top: 16px;
@@ -43,15 +36,7 @@
       font-size: 14px;
       box-sizing: border-box;
     }
-    input[readonly] {
-      background: #f3f4f6;
-      color: #6b7280;
-    }
-    .hint {
-      font-size: 12px;
-      color: #9ca3af;
-      margin-top: 4px;
-    }
+    .hint { font-size: 12px; color: #9ca3af; margin-top: 4px; }
     .parsed {
       margin-top: 8px;
       padding: 10px 12px;
@@ -84,34 +69,44 @@
       border-radius: 8px;
       display: none;
       font-size: 14px;
+      white-space: pre-line;
     }
     .success { background: #dcfce7; color: #166534; }
     .error { background: #fee2e2; color: #991b1b; }
+    .steps {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #6b7280;
+      display: none;
+      white-space: pre-line;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>Cập nhật Page & Conversation</h2>
-    <p class="desc">Dán link đơn hàng và link hội thoại để gắn page_id + conversation_id vào đơn.</p>
+    <h2>Cập nhật đơn + SĐT khách</h2>
+    <p class="desc">
+      1. Gắn page_id & conversation_id vào đơn<br>
+      2. Lấy SĐT + customer.id từ đơn → cập nhật khách hàng
+    </p>
 
     <form id="form">
-      <!-- Order Link -->
       <label>Link đơn hàng</label>
       <input type="text" id="orderLink" required
         placeholder="https://pos.pancake.vn/shop/5215640/order?order_id=360301035815098">
-      <div class="hint">Lấy shop_id và order_id từ link</div>
+      <div class="hint">Lấy shop_id và order_id</div>
       <div class="parsed" id="orderParsed"></div>
 
-      <!-- Conversation Link -->
       <label>Link hội thoại</label>
       <input type="text" id="conversationLink" required
         placeholder="https://pancake.vn/HERBE2820?c_id=106926415478660_29706226642294167">
-      <div class="hint">Lấy page_id và conversation_id từ c_id</div>
+      <div class="hint">Lấy page_id và conversation_id</div>
       <div class="parsed" id="conversationParsed"></div>
 
-      <button type="submit" id="submitBtn">Cập nhật đơn hàng</button>
+      <button type="submit" id="submitBtn">Chạy cập nhật</button>
     </form>
 
+    <div class="steps" id="steps"></div>
     <div id="result"></div>
   </div>
 
@@ -123,18 +118,14 @@
     const conversationParsedEl = document.getElementById('conversationParsed');
     const submitBtn = document.getElementById('submitBtn');
     const resultEl = document.getElementById('result');
+    const stepsEl = document.getElementById('steps');
 
-    // ===== Parse Order Link =====
-    // https://pos.pancake.vn/shop/5215640/order?order_id=360301035815098
     function parseOrderLink(link) {
       try {
         const url = new URL(link.trim());
         const orderId = url.searchParams.get('order_id');
-
-        // Lấy shop_id từ path: /shop/5215640/order
         const match = url.pathname.match(/\/shop\/(\d+)/);
         const shopId = match ? match[1] : null;
-
         if (!shopId || !orderId) return null;
         return { shop_id: shopId, order_id: orderId };
       } catch {
@@ -142,27 +133,19 @@
       }
     }
 
-    // ===== Parse Conversation Link =====
-    // https://pancake.vn/HERBE2820?c_id=106926415478660_29706226642294167
     function parseConversationLink(link) {
       try {
         const url = new URL(link.trim());
         const cId = url.searchParams.get('c_id');
         if (!cId) return null;
-
         const parts = cId.split('_');
         if (parts.length < 2) return null;
-
-        return {
-          page_id: parts[0],
-          conversation_id: cId
-        };
+        return { page_id: parts[0], conversation_id: cId };
       } catch {
         return null;
       }
     }
 
-    // Preview khi blur Order Link
     orderLinkInput.addEventListener('blur', () => {
       const parsed = parseOrderLink(orderLinkInput.value);
       if (parsed) {
@@ -176,7 +159,6 @@
       }
     });
 
-    // Preview khi blur Conversation Link
     conversationLinkInput.addEventListener('blur', () => {
       const parsed = parseConversationLink(conversationLinkInput.value);
       if (parsed) {
@@ -190,29 +172,36 @@
       }
     });
 
-    // ===== Submit =====
+    function setSteps(text) {
+      stepsEl.style.display = 'block';
+      stepsEl.textContent = text;
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       submitBtn.disabled = true;
       resultEl.style.display = 'none';
+      stepsEl.style.display = 'none';
 
       const orderData = parseOrderLink(orderLinkInput.value);
       const convData = parseConversationLink(conversationLinkInput.value);
 
       if (!orderData) {
-        showResult('Link đơn hàng không hợp lệ. Cần có shop_id và order_id.', false);
+        showResult('Link đơn hàng không hợp lệ.', false);
         submitBtn.disabled = false;
         return;
       }
-
       if (!convData) {
-        showResult('Link hội thoại không hợp lệ. Cần có c_id dạng pageId_xxx.', false);
+        showResult('Link hội thoại không hợp lệ.', false);
         submitBtn.disabled = false;
         return;
       }
 
       try {
-        const res = await fetch('/api/update-order', {
+        // ===== Bước 1: Cập nhật order =====
+        setSteps('Bước 1/2: Đang cập nhật đơn hàng (page_id + conversation_id)...');
+
+        const orderRes = await fetch('/api/update-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -223,16 +212,60 @@
           })
         });
 
-        const data = await res.json();
+        const orderResult = await orderRes.json();
+        console.log('update-order response:', orderResult);
 
-        if (!res.ok || data.success === false) {
-          const msg = data.message || 'Cập nhật thất bại';
-          showResult('Lỗi: ' + msg, false);
-        } else {
-          showResult('Cập nhật page_id & conversation_id thành công!', true);
+        if (!orderRes.ok || orderResult.success === false) {
+          throw new Error(orderResult.message || 'Cập nhật đơn hàng thất bại');
         }
+
+        const order = orderResult.data || orderResult;
+        const billPhone = order.bill_phone_number;
+        const pageCustomerId = order.customer?.id;
+
+        if (!billPhone) {
+          throw new Error('Không tìm thấy bill_phone_number trong response đơn hàng');
+        }
+        if (!pageCustomerId) {
+          throw new Error('Không tìm thấy customer.id trong response đơn hàng');
+        }
+
+        setSteps(
+          `Bước 1/2: OK\n` +
+          `- SĐT: ${billPhone}\n` +
+          `- customer.id: ${pageCustomerId}\n` +
+          `Bước 2/2: Đang cập nhật SĐT khách hàng...`
+        );
+
+        // ===== Bước 2: Cập nhật SĐT khách =====
+        const customerRes = await fetch('/api/update-customer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            page_id: convData.page_id,
+            page_customer_id: pageCustomerId,
+            phone: billPhone
+          })
+        });
+
+        const customerResult = await customerRes.json();
+        console.log('update-customer response:', customerResult);
+
+        if (!customerRes.ok || customerResult.success === false) {
+          throw new Error(customerResult.message || 'Cập nhật SĐT khách hàng thất bại');
+        }
+
+        showResult(
+          `Thành công!\n` +
+          `- Đã gắn page_id & conversation_id vào đơn\n` +
+          `- Đã cập nhật SĐT khách: ${billPhone}\n` +
+          `- page_customer_id: ${pageCustomerId}`,
+          true
+        );
+        setSteps('Hoàn tất 2 bước.');
       } catch (err) {
-        showResult('Lỗi kết nối: ' + err.message, false);
+        console.error(err);
+        showResult('Lỗi: ' + err.message, false);
       } finally {
         submitBtn.disabled = false;
       }
