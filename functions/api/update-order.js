@@ -3,12 +3,18 @@ export async function onRequestPost(context) {
 
   try {
     const body = await request.json();
-    const { shop_id, order_id, page_id, conversation_id } = body;
+    const {
+      shop_id,
+      order_id,
+      page_id,
+      conversation_id,
+      transfer_money,
+      cod
+    } = body;
 
     console.log('[update-order] Request body:', JSON.stringify(body));
 
     if (!shop_id || !order_id) {
-      console.log('[update-order] Missing shop_id or order_id');
       return new Response(JSON.stringify({
         success: false,
         message: 'Thiếu shop_id hoặc order_id'
@@ -18,21 +24,8 @@ export async function onRequestPost(context) {
       });
     }
 
-    if (!page_id && !conversation_id) {
-      console.log('[update-order] Missing page_id and conversation_id');
-      return new Response(JSON.stringify({
-        success: false,
-        message: 'Cần ít nhất page_id hoặc conversation_id để cập nhật'
-      }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
     const API_KEY = env.POS_API_KEY;
-
     if (!API_KEY) {
-      console.log('[update-order] POS_API_KEY is not set');
       return new Response(JSON.stringify({
         success: false,
         message: 'Chưa cấu hình POS_API_KEY'
@@ -42,9 +35,30 @@ export async function onRequestPost(context) {
       });
     }
 
+    // Chỉ gửi field có giá trị
     const updateBody = {};
-    if (page_id) updateBody.page_id = page_id;
-    if (conversation_id) updateBody.conversation_id = conversation_id;
+    if (page_id !== undefined && page_id !== null && page_id !== '') {
+      updateBody.page_id = page_id;
+    }
+    if (conversation_id !== undefined && conversation_id !== null && conversation_id !== '') {
+      updateBody.conversation_id = conversation_id;
+    }
+    if (transfer_money !== undefined && transfer_money !== null) {
+      updateBody.transfer_money = transfer_money;
+    }
+    if (cod !== undefined && cod !== null) {
+      updateBody.cod = cod;
+    }
+
+    if (Object.keys(updateBody).length === 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Không có field nào để cập nhật'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     const apiUrl = `https://pos.pages.fm/api/v1/shops/${shop_id}/orders/${order_id}?api_key=${API_KEY}`;
 
@@ -61,9 +75,8 @@ export async function onRequestPost(context) {
     });
 
     const data = await res.json();
-
-    console.log('[update-order] POS response status:', res.status);
-    console.log('[update-order] POS response body:', JSON.stringify(data));
+    console.log('[update-order] POS status:', res.status);
+    console.log('[update-order] POS body:', JSON.stringify(data).slice(0, 500));
 
     if (!res.ok || data.success === false) {
       return new Response(JSON.stringify({
@@ -78,8 +91,8 @@ export async function onRequestPost(context) {
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'Cập nhật page_id / conversation_id thành công',
-      data: data.data
+      message: 'Cập nhật đơn hàng thành công',
+      data
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
