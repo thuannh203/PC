@@ -149,11 +149,20 @@
     <!-- ===== TAB 2 ===== -->
     <div class="panel" id="tab2">
       <p class="desc">
-        Với mỗi order_id: GET đơn → PUT với transfer_money = total_price, cod = 0.
+        Với mỗi order_id: GET đơn → PUT cập nhật COD / chuyển khoản theo checkbox.
       </p>
       <form id="form2">
         <label>Shop ID</label>
-        <input type="text" id="shopId" required placeholder="5215640">
+        <input type="text" id="shopId" required value="5215640" placeholder="5215640">
+
+        <label style="display:flex; align-items:center; gap:8px; margin-top:16px; cursor:pointer;">
+          <input type="checkbox" id="isTransfer" checked style="width:auto; margin:0;">
+          <span>Chuyển khoản</span>
+        </label>
+        <div class="hint">
+          Tick: transfer_money = total_price, cod = 0<br>
+          Bỏ tick: transfer_money = 0, cod = total_price
+        </div>
 
         <label>Danh sách mã đơn hàng</label>
         <textarea id="orderIds" required placeholder="360301035815098&#10;360301035815099&#10;360301035815100"></textarea>
@@ -164,7 +173,6 @@
       <div class="steps" id="steps2"></div>
       <div id="result2"></div>
     </div>
-  </div>
 
   <script>
     // ===== Tabs =====
@@ -327,6 +335,7 @@
       resultEl.style.display = 'none';
 
       const shopId = document.getElementById('shopId').value.trim();
+      const isTransfer = document.getElementById('isTransfer').checked;
       const raw = document.getElementById('orderIds').value.trim();
       const orderIds = raw
         .split(/\r?\n/)
@@ -365,20 +374,24 @@
             throw new Error(orderData.message || 'GET order thất bại');
           }
 
-          const totalPrice = orderData.data.total_price;
+          const totalPrice = orderData.total_price;
           if (totalPrice === undefined || totalPrice === null) {
             throw new Error('Không có total_price trong response');
           }
 
-          // Bước 2: PUT transfer_money = total_price, cod = 0
+          // Theo checkbox
+          const transferMoney = isTransfer ? totalPrice : 0;
+          const codValue = isTransfer ? 0 : totalPrice;
+
+          // Bước 2: PUT
           const putRes = await fetch('/api/update-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               shop_id: shopId,
               order_id: orderId,
-              transfer_money: totalPrice,
-              cod: 0
+              transfer_money: transferMoney,
+              cod: codValue
             })
           });
           const putResult = await putRes.json();
@@ -388,7 +401,7 @@
           }
 
           okCount++;
-          logs.push(`✓ ${orderId}: transfer_money=${totalPrice}, cod=0`);
+          logs.push(`✓ ${orderId}: transfer_money=${transferMoney}, cod=${codValue}`);
         } catch (err) {
           failCount++;
           logs.push(`✗ ${orderId}: ${err.message}`);
@@ -396,11 +409,7 @@
       }
 
       stepsEl.textContent = `Xong: ${okCount} thành công, ${failCount} lỗi / tổng ${orderIds.length}`;
-      showResult(
-        resultEl,
-        logs.join('\n'),
-        failCount === 0
-      );
+      showResult(resultEl, logs.join('\n'), failCount === 0);
       submitBtn.disabled = false;
     });
   </script>
