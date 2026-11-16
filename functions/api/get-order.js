@@ -38,7 +38,7 @@ export async function onRequestGet(context) {
 
     const data = await res.json();
     console.log('[get-order] Status:', res.status);
-    console.log('[get-order] total_price:', data?.total_price, '| cod:', data?.cod);
+    console.log('[get-order] total_price:', data.data?.total_price, '| cod:', data.data?.cod);
 
     return new Response(JSON.stringify(data), {
       status: res.status,
