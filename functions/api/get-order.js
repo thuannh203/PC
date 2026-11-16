@@ -40,7 +40,7 @@ export async function onRequestGet(context) {
     console.log('[get-order] Status:', res.status);
     console.log('[get-order] total_price:', data.data?.total_price, '| cod:', data.data?.cod);
 
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify(data.data), {
       status: res.status,
       headers: { 'Content-Type': 'application/json' }
     });
