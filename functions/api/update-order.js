@@ -92,7 +92,7 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({
       success: true,
       message: 'Cập nhật đơn hàng thành công',
-      data
+      data: data.data
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
