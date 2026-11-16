@@ -87,7 +87,8 @@
     <h2>Cập nhật đơn + SĐT khách</h2>
     <p class="desc">
       1. Gắn page_id & conversation_id vào đơn<br>
-      2. Lấy SĐT + customer.id từ đơn → cập nhật khách hàng
+      2. Lấy page_customer_id từ hội thoại<br>
+      3. Cập nhật SĐT khách từ bill_phone_number của đơn
     </p>
 
     <form id="form">
@@ -199,7 +200,7 @@
 
       try {
         // ===== Bước 1: Cập nhật order =====
-        setSteps('Bước 1/2: Đang cập nhật đơn hàng (page_id + conversation_id)...');
+        setSteps('Bước 1/3: Đang cập nhật đơn hàng (page_id + conversation_id)...');
 
         const orderRes = await fetch('/api/update-order', {
           method: 'POST',
@@ -221,23 +222,39 @@
 
         const order = orderResult.data || orderResult;
         const billPhone = order.bill_phone_number;
-        const pageCustomerId = order.customer?.id;
 
         if (!billPhone) {
           throw new Error('Không tìm thấy bill_phone_number trong response đơn hàng');
         }
+
+        setSteps(
+          `Bước 1/3: OK (SĐT: ${billPhone})\n` +
+          `Bước 2/3: Đang lấy page_customer_id từ hội thoại...`
+        );
+
+        // ===== Bước 2: Lấy page_customer_id từ conversation =====
+        const convRes = await fetch(
+          `/api/get-conversation?page_id=${encodeURIComponent(convData.page_id)}&conversation_id=${encodeURIComponent(convData.conversation_id)}`
+        );
+        const convResult = await convRes.json();
+        console.log('get-conversation response:', convResult);
+
+        if (!convRes.ok || convResult.success === false) {
+          throw new Error(convResult.message || 'Không lấy được conversation');
+        }
+
+        const pageCustomerId = convResult?.customers?.[0]?.id;
         if (!pageCustomerId) {
-          throw new Error('Không tìm thấy customer.id trong response đơn hàng');
+          throw new Error('Không tìm thấy customers[0].id trong response hội thoại');
         }
 
         setSteps(
-          `Bước 1/2: OK\n` +
-          `- SĐT: ${billPhone}\n` +
-          `- customer.id: ${pageCustomerId}\n` +
-          `Bước 2/2: Đang cập nhật SĐT khách hàng...`
+          `Bước 1/3: OK (SĐT: ${billPhone})\n` +
+          `Bước 2/3: OK (page_customer_id: ${pageCustomerId})\n` +
+          `Bước 3/3: Đang cập nhật SĐT khách hàng...`
         );
 
-        // ===== Bước 2: Cập nhật SĐT khách =====
+        // ===== Bước 3: Cập nhật SĐT khách =====
         const customerRes = await fetch('/api/update-customer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -262,7 +279,7 @@
           `- page_customer_id: ${pageCustomerId}`,
           true
         );
-        setSteps('Hoàn tất 2 bước.');
+        setSteps('Hoàn tất cả 3 bước.');
       } catch (err) {
         console.error(err);
         showResult('Lỗi: ' + err.message, false);
