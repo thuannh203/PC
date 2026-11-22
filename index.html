@@ -120,6 +120,7 @@
     <div class="tabs">
       <div class="tab active" data-tab="tab1">Page + Conversation + SĐT</div>
       <div class="tab" data-tab="tab2">Cập nhật COD / CK</div>
+      <div class="tab" data-tab="tab3">Cập nhật giá SP</div>
     </div>
 
     <!-- ===== TAB 1 ===== -->
@@ -172,6 +173,25 @@
       </form>
       <div class="steps" id="steps2"></div>
       <div id="result2"></div>
+    </div>
+
+    <!-- ===== TAB 3 ===== -->
+    <div class="panel" id="tab3">
+      <p class="desc">
+        Với mỗi order_id: GET đơn → gán retail_price theo product_id từ product-prices.json → PUT lại items.
+      </p>
+      <form id="form3">
+        <label>Shop ID</label>
+        <input type="text" id="shopId3" required value="5215640" placeholder="5215640">
+
+        <label>Danh sách mã đơn hàng</label>
+        <textarea id="orderIds3" required placeholder="360301035221527&#10;360301035815098"></textarea>
+        <div class="hint">Mỗi dòng 1 order_id (order_id trên URL POS)</div>
+
+        <button type="submit" id="submitBtn3">Cập nhật giá sản phẩm</button>
+      </form>
+      <div class="steps" id="steps3"></div>
+      <div id="result3"></div>
     </div>
 
   <script>
@@ -409,6 +429,66 @@
       }
 
       stepsEl.textContent = `Xong: ${okCount} thành công, ${failCount} lỗi / tổng ${orderIds.length}`;
+      showResult(resultEl, logs.join('\n'), failCount === 0);
+      submitBtn.disabled = false;
+    });
+
+    // ===== TAB 2: COD / transfer_money =====
+    document.getElementById('form3').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn3');
+      const resultEl = document.getElementById('result3');
+      const stepsEl = document.getElementById('steps3');
+      submitBtn.disabled = true;
+      resultEl.style.display = 'none';
+
+      const shopId = document.getElementById('shopId3').value.trim();
+      const orderIds = document.getElementById('orderIds3').value
+        .trim()
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (!shopId || orderIds.length === 0) {
+        showResult(resultEl, 'Thiếu Shop ID hoặc danh sách order_id.', false);
+        submitBtn.disabled = false;
+        return;
+      }
+
+      const logs = [];
+      let okCount = 0;
+      let failCount = 0;
+      stepsEl.style.display = 'block';
+
+      for (let i = 0; i < orderIds.length; i++) {
+        const orderId = orderIds[i];
+        stepsEl.textContent = `Đang xử lý ${i + 1}/${orderIds.length}: ${orderId}`;
+
+        try {
+          const res = await fetch('/api/update-order-prices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shop_id: shopId, order_id: orderId })
+          });
+          const data = await res.json();
+
+          if (!res.ok || data.success === false) {
+            throw new Error(data.message || 'Cập nhật thất bại');
+          }
+
+          okCount++;
+          const miss = (data.missing_product_ids || []).length;
+          logs.push(
+            `✓ ${orderId}: ${data.items_updated} sp` +
+            (miss ? ` (thiếu ${miss} product_id trong bảng giá)` : '')
+          );
+        } catch (err) {
+          failCount++;
+          logs.push(`✗ ${orderId}: ${err.message}`);
+        }
+      }
+
+      stepsEl.textContent = `Xong: ${okCount} OK, ${failCount} lỗi / ${orderIds.length}`;
       showResult(resultEl, logs.join('\n'), failCount === 0);
       submitBtn.disabled = false;
     });
