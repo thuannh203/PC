@@ -188,6 +188,11 @@
         <label>Shop ID</label>
         <input type="text" id="shopId3" required value="5215640" placeholder="5215640">
 
+        <label style="display:flex; align-items:center; gap:8px; margin-top:16px; cursor:pointer;">
+          <input type="checkbox" id="isZero" style="width:auto; margin:0;">
+          <span>Set giá = 0</span>
+        </label>
+
         <label>Danh sách mã đơn hàng</label>
         <textarea id="orderIds3" required placeholder="360301035221527&#10;360301035815098"></textarea>
         <div class="hint">Mỗi dòng 1 order_id (trên URL POS)</div>
@@ -499,6 +504,7 @@
         submitBtn.disabled = false;
         return;
       }
+      const isZero = document.getElementById('isZero').checked;
 
       const logs = [];
       let okCount = 0;
@@ -513,7 +519,7 @@
           const res = await fetch('/api/update-order-prices', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ shop_id: shopId, order_id: orderId })
+            body: JSON.stringify({ shop_id: shopId, order_id: orderId, isZero })
           });
           const data = await res.json();
 
