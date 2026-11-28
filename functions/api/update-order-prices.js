@@ -3,7 +3,7 @@ export async function onRequestPost(context) {
 
   try {
     const body = await request.json();
-    const { shop_id, order_id } = body;
+    const { shop_id, order_id, isZero } = body;
 
     console.log('[update-order-prices] Request:', JSON.stringify(body));
 
@@ -57,7 +57,7 @@ export async function onRequestPost(context) {
     const missing = [];
     const updatedItems = items.map((item) => {
       const productId = item.product_id;
-      const newPrice = priceMap[productId];
+      const newPrice = isZero ? 0 : priceMap[productId];
 
       if (newPrice === undefined || newPrice === null) {
         missing.push(productId);
